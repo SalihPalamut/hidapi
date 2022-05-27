@@ -196,11 +196,45 @@ struct hid_device_info HID_API_EXPORT * HID_API_CALL hid_enumerate(unsigned shor
 
     This function frees a linked list created by hid_enumerate().
 
-	@ingroup API
+    @ingroup API
     @param devs Pointer to a list of struct_device returned from
     	      hid_enumerate().
 */
 void  HID_API_EXPORT HID_API_CALL hid_free_enumeration(struct hid_device_info *devs);
+
+
+/** @brief Open a HID device using a Vendor ID (VID), Product ID
+	(PID) and optionally a serial number Or Usb Path .
+
+	If @p path is NULL, the first device with the
+	specified VID and PID is opened.
+	Else The path name be determined by calling hid_enumerate(), or a
+	platform-specific path name can be used (eg: /dev/hidraw0 on
+	Linux).
+
+	If @p serial_number is NULL, the first device with the
+	specified VID and PID is opened.
+
+	if @p ReadDataCb is not null. Readed hid data transfered callback function.
+
+	This function sets the return value of hid_error().
+
+	@ingroup API
+	@param vendor_id The Vendor ID (VID) of the device to open.
+	@param product_id The Product ID (PID) of the device to open.
+	@param serial_number The Serial Number of the device to open
+		               (Optionally NULL).
+	@param path The path name of the device to open  (Optionally NULL).
+	@param ReadCallBack is a FUnction pointer void (*ReadDataCb)(char *data, int size);
+	 (Optionally NULL).
+	 
+	@returns
+		This function returns a pointer to a #hid_device object on
+		success or NULL on failure.
+*/
+HID_API_EXPORT hid_device * HID_API_EXPORT hid_open_Callback(const char *path, unsigned short vendor_id, unsigned short product_id, const wchar_t *serial_number, void * ReadCallBack);
+
+
 
 /** @brief Open a HID device using a Vendor ID (VID), Product ID
 	(PID) and optionally a serial number.

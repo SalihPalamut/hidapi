@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <errno.h>
+#include <pthread.h>
 
 /* Unix */
 #include <unistd.h>
@@ -92,6 +93,12 @@ struct hid_device_
 	int blocking;
 	int uses_numbered_reports;
 	wchar_t *last_error_str;
+	pthread_t thread;
+	pthread_mutex_t mutex;
+	int run_thread;
+	unsigned char Data[64];
+	int DataSize;
+	void (*ReadDataCb)(unsigned char *data, int size);
 };
 
 static struct hid_api_version api_version =
@@ -112,7 +119,9 @@ static hid_device *new_hid_device(void)
 	dev->blocking = 1;
 	dev->uses_numbered_reports = 0;
 	dev->last_error_str = NULL;
-
+	dev->run_thread = 0;
+	dev->DataSize = 0;
+	dev->ReadDataCb = NULL;
 	return dev;
 }
 
@@ -922,6 +931,67 @@ void  HID_API_EXPORT hid_free_enumeration(struct hid_device_info *devs)
 	}
 }
 
+
+static void *read_thread(void *param)
+{
+	hid_device *dev = param;
+	while(dev->run_thread)
+	{
+		pthread_mutex_lock(&dev->mutex);
+		dev->DataSize = read(dev->device_handle, dev->Data, 64);
+
+		if(dev->DataSize < 0)
+		{
+			if(errno == EAGAIN || errno == EINPROGRESS)
+				dev->DataSize = 0;
+			else
+				register_device_error(dev, strerror(errno));
+		}
+		if(dev->DataSize > 0)
+		{
+#ifdef Debug
+			printf("\nReaded Data For Debug Mode \n\n");
+			for(int i = 0; i < dev->DataSize; i++)
+			{
+				printf("0x%.2X ", dev->Data[i]);
+
+			}
+			printf("\n");
+			printf("\nEnd of Readed Data\n\n");
+#endif
+			dev->ReadDataCb(dev->Data, dev->DataSize);
+		}
+		pthread_mutex_unlock(&dev->mutex);
+	}
+	return NULL;
+}
+
+
+hid_device * HID_API_EXPORT hid_open_Callback(const char *path, unsigned short vendor_id, unsigned short product_id, const wchar_t *serial_number, void * ReadCallBack)
+{
+	hid_device *handle = NULL;
+	if(path)
+	{
+		handle = hid_open_path(path);
+	}
+	else
+	{
+		handle = hid_open(vendor_id, product_id, serial_number);
+	}
+
+	if(ReadCallBack && handle)
+	{
+		handle->ReadDataCb = ReadCallBack;
+		handle->run_thread = 1;
+		pthread_create(&handle->thread, NULL, read_thread, handle);
+
+	}
+
+	return handle;
+}
+
+
+
 hid_device * hid_open(unsigned short vendor_id, unsigned short product_id, const wchar_t *serial_number)
 {
 	/* Set global error to none */
@@ -1155,6 +1225,17 @@ void HID_API_EXPORT hid_close(hid_device *dev)
 {
 	if(!dev)
 		return;
+
+	if(dev->run_thread)
+	{
+#ifdef Debug
+		printf("Read Thread Cancel\n");
+#endif
+		dev->run_thread = 0;
+		/* Wait for read_thread() to end. */
+		// pthread_join(dev->thread, NULL);
+		pthread_cancel(dev->thread);
+	}
 
 	int ret = close(dev->device_handle);
 
