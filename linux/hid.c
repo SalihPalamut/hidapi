@@ -69,14 +69,16 @@
 #endif
 
 /* USB HID device property names */
-const char *device_string_names[] = {
+const char *device_string_names[] =
+{
 	"manufacturer",
 	"product",
 	"serial",
 };
 
 /* Symbolic names for the properties above */
-enum device_string_id {
+enum device_string_id
+{
 	DEVICE_STRING_MANUFACTURER,
 	DEVICE_STRING_PRODUCT,
 	DEVICE_STRING_SERIAL,
@@ -84,14 +86,16 @@ enum device_string_id {
 	DEVICE_STRING_COUNT,
 };
 
-struct hid_device_ {
+struct hid_device_
+{
 	int device_handle;
 	int blocking;
 	int uses_numbered_reports;
 	wchar_t *last_error_str;
 };
 
-static struct hid_api_version api_version = {
+static struct hid_api_version api_version =
+{
 	.major = HID_API_VERSION_MAJOR,
 	.minor = HID_API_VERSION_MINOR,
 	.patch = HID_API_VERSION_PATCH
@@ -118,13 +122,15 @@ static wchar_t *utf8_to_wchar_t(const char *utf8)
 {
 	wchar_t *ret = NULL;
 
-	if (utf8) {
+	if(utf8)
+	{
 		size_t wlen = mbstowcs(NULL, utf8, 0);
-		if ((size_t) -1 == wlen) {
+		if((size_t) -1 == wlen)
+		{
 			return wcsdup(L"");
 		}
-		ret = (wchar_t*) calloc(wlen+1, sizeof(wchar_t));
-		mbstowcs(ret, utf8, wlen+1);
+		ret = (wchar_t*) calloc(wlen + 1, sizeof(wchar_t));
+		mbstowcs(ret, utf8, wlen + 1);
 		ret[wlen] = 0x0000;
 	}
 
@@ -139,7 +145,7 @@ static wchar_t *utf8_to_wchar_t(const char *utf8)
  * Use register_global_error(NULL) to indicate "no error". */
 static void register_global_error(const char *msg)
 {
-	if (last_global_error_str)
+	if(last_global_error_str)
 		free(last_global_error_str);
 
 	last_global_error_str = utf8_to_wchar_t(msg);
@@ -166,7 +172,7 @@ static void register_global_error_format(const char *format, ...)
  * Use register_device_error(device, NULL) to indicate "no error". */
 static void register_device_error(hid_device *dev, const char *msg)
 {
-	if (dev->last_error_str)
+	if(dev->last_error_str)
 		free(dev->last_error_str);
 
 	dev->last_error_str = utf8_to_wchar_t(msg);
@@ -209,8 +215,9 @@ static int get_hid_item_size(__u8 *report_descriptor, unsigned int pos, __u32 si
 	 * See the HID specification, version 1.11, section
 	 * 6.2.2.3, titled "Long Items."
 	 */
-	if ((key & 0xf0) == 0xf0) {
-		if (pos + 1 < size)
+	if((key & 0xf0) == 0xf0)
+	{
+		if(pos + 1 < size)
 		{
 			*data_len = report_descriptor[pos + 1];
 			*key_size = 3;
@@ -228,22 +235,23 @@ static int get_hid_item_size(__u8 *report_descriptor, unsigned int pos, __u32 si
 	 * titled "Short Items."
 	 */
 	size_code = key & 0x3;
-	switch (size_code) {
-	case 0:
-	case 1:
-	case 2:
-		*data_len = size_code;
-		*key_size = 1;
-		return 1;
-	case 3:
-		*data_len = 4;
-		*key_size = 1;
-		return 1;
-	default:
-		/* Can't ever happen since size_code is & 0x3 */
-		*data_len = 0;
-		*key_size = 0;
-		break;
+	switch(size_code)
+	{
+		case 0:
+		case 1:
+		case 2:
+			*data_len = size_code;
+			*key_size = 1;
+			return 1;
+		case 3:
+			*data_len = 4;
+			*key_size = 1;
+			return 1;
+		default:
+			/* Can't ever happen since size_code is & 0x3 */
+			*data_len = 0;
+			*key_size = 0;
+			break;
 	};
 
 	/* malformed report */
@@ -252,22 +260,25 @@ static int get_hid_item_size(__u8 *report_descriptor, unsigned int pos, __u32 si
 
 /* uses_numbered_reports() returns 1 if report_descriptor describes a device
    which contains numbered reports. */
-static int uses_numbered_reports(__u8 *report_descriptor, __u32 size) {
+static int uses_numbered_reports(__u8 *report_descriptor, __u32 size)
+{
 	unsigned int i = 0;
 	int data_len, key_size;
 
-	while (i < size) {
+	while(i < size)
+	{
 		int key = report_descriptor[i];
 
 		/* Check for the Report ID key */
-		if (key == 0x85/*Report ID*/) {
+		if(key == 0x85/*Report ID*/)
+		{
 			/* This device has a Report ID, which means it uses
 			   numbered reports. */
 			return 1;
 		}
 
 		/* Determine data_len and key_size */
-		if (!get_hid_item_size(report_descriptor, i, size, &data_len, &key_size))
+		if(!get_hid_item_size(report_descriptor, i, size, &data_len, &key_size))
 			return 0; /* malformed report */
 
 		/* Skip over this key and its associated data */
@@ -285,22 +296,22 @@ static int uses_numbered_reports(__u8 *report_descriptor, __u32 size) {
 static __u32 get_hid_report_bytes(__u8 *rpt, size_t len, size_t num_bytes, size_t cur)
 {
 	/* Return if there aren't enough bytes. */
-	if (cur + num_bytes >= len)
+	if(cur + num_bytes >= len)
 		return 0;
 
-	if (num_bytes == 0)
+	if(num_bytes == 0)
 		return 0;
-	else if (num_bytes == 1)
+	else if(num_bytes == 1)
 		return rpt[cur + 1];
-	else if (num_bytes == 2)
+	else if(num_bytes == 2)
 		return (rpt[cur + 2] * 256 + rpt[cur + 1]);
-	else if (num_bytes == 4)
+	else if(num_bytes == 4)
 		return (
-			rpt[cur + 4] * 0x01000000 +
-			rpt[cur + 3] * 0x00010000 +
-			rpt[cur + 2] * 0x00000100 +
-			rpt[cur + 1] * 0x00000001
-		);
+		           rpt[cur + 4] * 0x01000000 +
+		           rpt[cur + 3] * 0x00010000 +
+		           rpt[cur + 2] * 0x00000100 +
+		           rpt[cur + 1] * 0x00000001
+		       );
 	else
 		return 0;
 }
@@ -331,53 +342,55 @@ static int get_next_hid_usage(__u8 *report_descriptor, __u32 size, unsigned int 
 	/* Usage is a Local Item, it must be set before each Main Item (Collection) before a pair is returned */
 	int usage_found = 0;
 
-	while (*pos < size) {
+	while(*pos < size)
+	{
 		int key = report_descriptor[*pos];
 		int key_cmd = key & 0xfc;
 
 		/* Determine data_len and key_size */
-		if (!get_hid_item_size(report_descriptor, *pos, size, &data_len, &key_size))
+		if(!get_hid_item_size(report_descriptor, *pos, size, &data_len, &key_size))
 			return -1; /* malformed report */
 
-		switch (key_cmd) {
-		case 0x4: /* Usage Page 6.2.2.7 (Global) */
-			*usage_page = get_hid_report_bytes(report_descriptor, size, data_len, *pos);
-			break;
+		switch(key_cmd)
+		{
+			case 0x4: /* Usage Page 6.2.2.7 (Global) */
+				*usage_page = get_hid_report_bytes(report_descriptor, size, data_len, *pos);
+				break;
 
-		case 0x8: /* Usage 6.2.2.8 (Local) */
-			*usage = get_hid_report_bytes(report_descriptor, size, data_len, *pos);
-			usage_found = 1;
-			break;
+			case 0x8: /* Usage 6.2.2.8 (Local) */
+				*usage = get_hid_report_bytes(report_descriptor, size, data_len, *pos);
+				usage_found = 1;
+				break;
 
-		case 0xa0: /* Collection 6.2.2.4 (Main) */
-			/* A Usage Item (Local) must be found for the pair to be valid */
-			if (usage_found)
-				usage_pair_ready = 1;
+			case 0xa0: /* Collection 6.2.2.4 (Main) */
+				/* A Usage Item (Local) must be found for the pair to be valid */
+				if(usage_found)
+					usage_pair_ready = 1;
 
-			/* Usage is a Local Item, unset it */
-			usage_found = 0;
-			break;
+				/* Usage is a Local Item, unset it */
+				usage_found = 0;
+				break;
 
-		case 0x80: /* Input 6.2.2.4 (Main) */
-		case 0x90: /* Output 6.2.2.4 (Main) */
-		case 0xb0: /* Feature 6.2.2.4 (Main) */
-		case 0xc0: /* End Collection 6.2.2.4 (Main) */
-			/* Usage is a Local Item, unset it */
-			usage_found = 0;
-			break;
+			case 0x80: /* Input 6.2.2.4 (Main) */
+			case 0x90: /* Output 6.2.2.4 (Main) */
+			case 0xb0: /* Feature 6.2.2.4 (Main) */
+			case 0xc0: /* End Collection 6.2.2.4 (Main) */
+				/* Usage is a Local Item, unset it */
+				usage_found = 0;
+				break;
 		}
 
 		/* Skip over this key and its associated data */
 		*pos += data_len + key_size;
 
 		/* Return usage pair */
-		if (usage_pair_ready)
+		if(usage_pair_ready)
 			return 0;
 	}
 
 	/* If no top-level application collection is found and usage page/usage pair is found, pair is valid
 	   https://docs.microsoft.com/en-us/windows-hardware/drivers/hid/top-level-collections */
-	if (initial && usage_found)
+	if(initial && usage_found)
 		return 0; /* success */
 
 	return 1; /* finished processing */
@@ -393,7 +406,8 @@ static int get_hid_report_descriptor(const char *rpt_path, struct hidraw_report_
 	ssize_t res;
 
 	rpt_handle = open(rpt_path, O_RDONLY);
-	if (rpt_handle < 0) {
+	if(rpt_handle < 0)
+	{
 		register_global_error_format("open failed (%s): %s", rpt_path, strerror(errno));
 		return -1;
 	}
@@ -406,7 +420,8 @@ static int get_hid_report_descriptor(const char *rpt_path, struct hidraw_report_
 	 */
 	memset(rpt_desc, 0x0, sizeof(*rpt_desc));
 	res = read(rpt_handle, rpt_desc->value, HID_MAX_DESCRIPTOR_SIZE);
-	if (res < 0) {
+	if(res < 0)
+	{
 		register_global_error_format("read failed (%s): %s", rpt_path, strerror(errno));
 	}
 	rpt_desc->size = (__u32) res;
@@ -435,8 +450,8 @@ static int get_hid_report_descriptor_from_sysfs(const char *sysfs_path, struct h
  */
 static int
 parse_uevent_info(const char *uevent, unsigned *bus_type,
-	unsigned short *vendor_id, unsigned short *product_id,
-	char **serial_number_utf8, char **product_name_utf8)
+                  unsigned short *vendor_id, unsigned short *product_id,
+                  char **serial_number_utf8, char **product_name_utf8)
 {
 	char *tmp = strdup(uevent);
 	char *saveptr = NULL;
@@ -449,36 +464,44 @@ parse_uevent_info(const char *uevent, unsigned *bus_type,
 	int found_name = 0;
 
 	line = strtok_r(tmp, "\n", &saveptr);
-	while (line != NULL) {
+	while(line != NULL)
+	{
 		/* line: "KEY=value" */
 		key = line;
 		value = strchr(line, '=');
-		if (!value) {
+		if(!value)
+		{
 			goto next_line;
 		}
 		*value = '\0';
 		value++;
 
-		if (strcmp(key, "HID_ID") == 0) {
+		if(strcmp(key, "HID_ID") == 0)
+		{
 			/**
 			 *        type vendor   product
 			 * HID_ID=0003:000005AC:00008242
 			 **/
 			int ret = sscanf(value, "%x:%hx:%hx", bus_type, vendor_id, product_id);
-			if (ret == 3) {
+			if(ret == 3)
+			{
 				found_id = 1;
 			}
-		} else if (strcmp(key, "HID_NAME") == 0) {
+		}
+		else if(strcmp(key, "HID_NAME") == 0)
+		{
 			/* The caller has to free the product name */
 			*product_name_utf8 = strdup(value);
 			found_name = 1;
-		} else if (strcmp(key, "HID_UNIQ") == 0) {
+		}
+		else if(strcmp(key, "HID_UNIQ") == 0)
+		{
 			/* The caller has to free the serial number */
 			*serial_number_utf8 = strdup(value);
 			found_serial = 1;
 		}
 
-next_line:
+	next_line:
 		line = strtok_r(NULL, "\n", &saveptr);
 	}
 
@@ -498,86 +521,98 @@ static int get_device_string(hid_device *dev, enum device_string_id key, wchar_t
 
 	/* Create the udev object */
 	udev = udev_new();
-	if (!udev) {
+	if(!udev)
+	{
 		register_global_error("Couldn't create udev context");
 		return -1;
 	}
 
 	/* Get the dev_t (major/minor numbers) from the file handle. */
 	ret = fstat(dev->device_handle, &s);
-	if (-1 == ret)
+	if(-1 == ret)
 		return ret;
 	/* Open a udev device from the dev_t. 'c' means character device. */
 	udev_dev = udev_device_new_from_devnum(udev, 'c', s.st_rdev);
-	if (udev_dev) {
+	if(udev_dev)
+	{
 		hid_dev = udev_device_get_parent_with_subsystem_devtype(
-			udev_dev,
-			"hid",
-			NULL);
-		if (hid_dev) {
+		              udev_dev,
+		              "hid",
+		              NULL);
+		if(hid_dev)
+		{
 			unsigned short dev_vid;
 			unsigned short dev_pid;
 			unsigned bus_type;
 			size_t retm;
 
 			ret = parse_uevent_info(
-			           udev_device_get_sysattr_value(hid_dev, "uevent"),
-			           &bus_type,
-			           &dev_vid,
-			           &dev_pid,
-			           &serial_number_utf8,
-			           &product_name_utf8);
+			          udev_device_get_sysattr_value(hid_dev, "uevent"),
+			          &bus_type,
+			          &dev_vid,
+			          &dev_pid,
+			          &serial_number_utf8,
+			          &product_name_utf8);
 
 			/* Standard USB device */
-			if (bus_type == BUS_USB) {
+			if(bus_type == BUS_USB)
+			{
 				/* This is a USB device. Find its parent USB Device node. */
 				parent = udev_device_get_parent_with_subsystem_devtype(
-					   udev_dev,
-					   "usb",
-					   "usb_device");
-				if (parent) {
+				             udev_dev,
+				             "usb",
+				             "usb_device");
+				if(parent)
+				{
 					const char *str;
 					const char *key_str = NULL;
 
-					if (key >= 0 && key < DEVICE_STRING_COUNT) {
+					if(key >= 0 && key < DEVICE_STRING_COUNT)
+					{
 						key_str = device_string_names[key];
-					} else {
+					}
+					else
+					{
 						ret = -1;
 						goto end;
 					}
 
 					str = udev_device_get_sysattr_value(parent, key_str);
-					if (str) {
+					if(str)
+					{
 						/* Convert the string from UTF-8 to wchar_t */
 						retm = mbstowcs(string, str, maxlen);
-						ret = (retm == (size_t)-1)? -1: 0;
+						ret = (retm == (size_t) -1) ? -1 : 0;
 					}
 
 					/* USB information parsed */
 					goto end;
 				}
-				else {
+				else
+				{
 					/* Correctly handled below */
 				}
 			}
 
 			/* USB information not available (uhid) or another type of HID bus */
-			switch (bus_type) {
+			switch(bus_type)
+			{
 				case BUS_BLUETOOTH:
 				case BUS_I2C:
 				case BUS_USB:
-					switch (key) {
+					switch(key)
+					{
 						case DEVICE_STRING_MANUFACTURER:
 							wcsncpy(string, L"", maxlen);
 							ret = 0;
 							break;
 						case DEVICE_STRING_PRODUCT:
 							retm = mbstowcs(string, product_name_utf8, maxlen);
-							ret = (retm == (size_t)-1)? -1: 0;
+							ret = (retm == (size_t) -1) ? -1 : 0;
 							break;
 						case DEVICE_STRING_SERIAL:
 							retm = mbstowcs(string, serial_number_utf8, maxlen);
-							ret = (retm == (size_t)-1)? -1: 0;
+							ret = (retm == (size_t) -1) ? -1 : 0;
 							break;
 						case DEVICE_STRING_COUNT:
 						default:
@@ -616,7 +651,7 @@ int HID_API_EXPORT hid_init(void)
 
 	/* Set the locale if it's not set. */
 	locale = setlocale(LC_CTYPE, NULL);
-	if (!locale)
+	if(!locale)
 		setlocale(LC_CTYPE, "");
 
 	return 0;
@@ -645,7 +680,8 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 
 	/* Create the udev object */
 	udev = udev_new();
-	if (!udev) {
+	if(!udev)
+	{
 		register_global_error("Couldn't create udev context");
 		return NULL;
 	}
@@ -657,7 +693,8 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 	devices = udev_enumerate_get_list_entry(enumerate);
 	/* For each item, see if it matches the vid/pid, and if so
 	   create a udev_device record for it */
-	udev_list_entry_foreach(dev_list_entry, devices) {
+	udev_list_entry_foreach(dev_list_entry, devices)
+	{
 		const char *sysfs_path;
 		const char *dev_path;
 		const char *str;
@@ -680,30 +717,33 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 		dev_path = udev_device_get_devnode(raw_dev);
 
 		hid_dev = udev_device_get_parent_with_subsystem_devtype(
-			raw_dev,
-			"hid",
-			NULL);
+		              raw_dev,
+		              "hid",
+		              NULL);
 
-		if (!hid_dev) {
+		if(!hid_dev)
+		{
 			/* Unable to find parent hid device. */
 			goto next;
 		}
 
 		result = parse_uevent_info(
-			udev_device_get_sysattr_value(hid_dev, "uevent"),
-			&bus_type,
-			&dev_vid,
-			&dev_pid,
-			&serial_number_utf8,
-			&product_name_utf8);
+		             udev_device_get_sysattr_value(hid_dev, "uevent"),
+		             &bus_type,
+		             &dev_vid,
+		             &dev_pid,
+		             &serial_number_utf8,
+		             &product_name_utf8);
 
-		if (!result) {
+		if(!result)
+		{
 			/* parse_uevent_info() failed for at least one field. */
 			goto next;
 		}
 
 		/* Filter out unhandled devices right away */
-		switch (bus_type) {
+		switch(bus_type)
+		{
 			case BUS_BLUETOOTH:
 			case BUS_I2C:
 			case BUS_USB:
@@ -714,16 +754,19 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 		}
 
 		/* Check the VID/PID against the arguments */
-		if ((vendor_id == 0x0 || vendor_id == dev_vid) &&
-		    (product_id == 0x0 || product_id == dev_pid)) {
+		if((vendor_id == 0x0 || vendor_id == dev_vid) &&
+		        (product_id == 0x0 || product_id == dev_pid))
+		{
 			struct hid_device_info *tmp;
 
 			/* VID/PID match. Create the record. */
 			tmp = (struct hid_device_info*) calloc(1, sizeof(struct hid_device_info));
-			if (cur_dev) {
+			if(cur_dev)
+			{
 				cur_dev->next = tmp;
 			}
-			else {
+			else
+			{
 				root = tmp;
 			}
 			prev_dev = cur_dev;
@@ -731,7 +774,7 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 
 			/* Fill out the record */
 			cur_dev->next = NULL;
-			cur_dev->path = dev_path? strdup(dev_path): NULL;
+			cur_dev->path = dev_path ? strdup(dev_path) : NULL;
 
 			/* VID/PID */
 			cur_dev->vendor_id = dev_vid;
@@ -746,7 +789,8 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 			/* Interface Number */
 			cur_dev->interface_number = -1;
 
-			switch (bus_type) {
+			switch(bus_type)
+			{
 				case BUS_USB:
 					/* The device pointed to by raw_dev contains information about
 					   the hidraw device. In order to get information about the
@@ -755,14 +799,15 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 					   be several levels up the tree, but the function will find
 					   it. */
 					usb_dev = udev_device_get_parent_with_subsystem_devtype(
-							raw_dev,
-							"usb",
-							"usb_device");
+					              raw_dev,
+					              "usb",
+					              "usb_device");
 
 					/* uhid USB devices
 					   Since this is a virtual hid interface, no USB information will
 					   be available. */
-					if (!usb_dev) {
+					if(!usb_dev)
+					{
 						/* Manufacturer and Product strings */
 						cur_dev->manufacturer_string = wcsdup(L"");
 						cur_dev->product_string = utf8_to_wchar_t(product_name_utf8);
@@ -775,16 +820,17 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 
 					/* Release Number */
 					str = udev_device_get_sysattr_value(usb_dev, "bcdDevice");
-					cur_dev->release_number = (str)? strtol(str, NULL, 16): 0x0;
+					cur_dev->release_number = (str) ? strtol(str, NULL, 16) : 0x0;
 
 					/* Get a handle to the interface's udev node. */
 					intf_dev = udev_device_get_parent_with_subsystem_devtype(
-							raw_dev,
-							"usb",
-							"usb_interface");
-					if (intf_dev) {
+					               raw_dev,
+					               "usb",
+					               "usb_interface");
+					if(intf_dev)
+					{
 						str = udev_device_get_sysattr_value(intf_dev, "bInterfaceNumber");
-						cur_dev->interface_number = (str)? strtol(str, NULL, 16): -1;
+						cur_dev->interface_number = (str) ? strtol(str, NULL, 16) : -1;
 					}
 
 					break;
@@ -805,14 +851,16 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 
 			/* Usage Page and Usage */
 			result = get_hid_report_descriptor_from_sysfs(sysfs_path, &report_desc);
-			if (result >= 0) {
+			if(result >= 0)
+			{
 				unsigned short page = 0, usage = 0;
 				unsigned int pos = 0;
 				/*
 				 * Parse the first usage and usage page
 				 * out of the report descriptor.
 				 */
-				if (!get_next_hid_usage(report_desc.value, report_desc.size, &pos, &page, &usage)) {
+				if(!get_next_hid_usage(report_desc.value, report_desc.size, &pos, &page, &usage))
+				{
 					cur_dev->usage_page = page;
 					cur_dev->usage = usage;
 				}
@@ -821,7 +869,8 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 				 * Parse any additional usage and usage pages
 				 * out of the report descriptor.
 				 */
-				while (!get_next_hid_usage(report_desc.value, report_desc.size, &pos, &page, &usage)) {
+				while(!get_next_hid_usage(report_desc.value, report_desc.size, &pos, &page, &usage))
+				{
 					/* Create new record for additional usage pairs */
 					tmp = (struct hid_device_info*) calloc(1, sizeof(struct hid_device_info));
 					cur_dev->next = tmp;
@@ -832,11 +881,11 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 					cur_dev->path = strdup(dev_path);
 					cur_dev->vendor_id = dev_vid;
 					cur_dev->product_id = dev_pid;
-					cur_dev->serial_number = prev_dev->serial_number? wcsdup(prev_dev->serial_number): NULL;
+					cur_dev->serial_number = prev_dev->serial_number ? wcsdup(prev_dev->serial_number) : NULL;
 					cur_dev->release_number = prev_dev->release_number;
 					cur_dev->interface_number = prev_dev->interface_number;
-					cur_dev->manufacturer_string = prev_dev->manufacturer_string? wcsdup(prev_dev->manufacturer_string): NULL;
-					cur_dev->product_string = prev_dev->product_string? wcsdup(prev_dev->product_string): NULL;
+					cur_dev->manufacturer_string = prev_dev->manufacturer_string ? wcsdup(prev_dev->manufacturer_string) : NULL;
+					cur_dev->product_string = prev_dev->product_string ? wcsdup(prev_dev->product_string) : NULL;
 					cur_dev->usage_page = page;
 					cur_dev->usage = usage;
 				}
@@ -861,7 +910,8 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 void  HID_API_EXPORT hid_free_enumeration(struct hid_device_info *devs)
 {
 	struct hid_device_info *d = devs;
-	while (d) {
+	while(d)
+	{
 		struct hid_device_info *next = d->next;
 		free(d->path);
 		free(d->serial_number);
@@ -883,16 +933,21 @@ hid_device * hid_open(unsigned short vendor_id, unsigned short product_id, const
 
 	devs = hid_enumerate(vendor_id, product_id);
 	cur_dev = devs;
-	while (cur_dev) {
-		if (cur_dev->vendor_id == vendor_id &&
-		    cur_dev->product_id == product_id) {
-			if (serial_number) {
-				if (wcscmp(serial_number, cur_dev->serial_number) == 0) {
+	while(cur_dev)
+	{
+		if(cur_dev->vendor_id == vendor_id &&
+		        cur_dev->product_id == product_id)
+		{
+			if(serial_number)
+			{
+				if(wcscmp(serial_number, cur_dev->serial_number) == 0)
+				{
 					path_to_open = cur_dev->path;
 					break;
 				}
 			}
-			else {
+			else
+			{
 				path_to_open = cur_dev->path;
 				break;
 			}
@@ -900,10 +955,13 @@ hid_device * hid_open(unsigned short vendor_id, unsigned short product_id, const
 		cur_dev = cur_dev->next;
 	}
 
-	if (path_to_open) {
+	if(path_to_open)
+	{
 		/* Open the device */
 		handle = hid_open_path(path_to_open);
-	} else {
+	}
+	else
+	{
 		register_global_error("No such device");
 	}
 
@@ -927,7 +985,8 @@ hid_device * HID_API_EXPORT hid_open_path(const char *path)
 	dev->device_handle = open(path, O_RDWR);
 
 	/* If we have a good handle, return it. */
-	if (dev->device_handle >= 0) {
+	if(dev->device_handle >= 0)
+	{
 		/* Set device error to none */
 		register_device_error(dev, NULL);
 
@@ -939,24 +998,28 @@ hid_device * HID_API_EXPORT hid_open_path(const char *path)
 
 		/* Get Report Descriptor Size */
 		res = ioctl(dev->device_handle, HIDIOCGRDESCSIZE, &desc_size);
-		if (res < 0)
+		if(res < 0)
 			register_device_error_format(dev, "ioctl (GRDESCSIZE): %s", strerror(errno));
 
 		/* Get Report Descriptor */
 		rpt_desc.size = desc_size;
 		res = ioctl(dev->device_handle, HIDIOCGRDESC, &rpt_desc);
-		if (res < 0) {
+		if(res < 0)
+		{
 			register_device_error_format(dev, "ioctl (GRDESC): %s", strerror(errno));
-		} else {
+		}
+		else
+		{
 			/* Determine if this device uses numbered reports. */
 			dev->uses_numbered_reports =
-				uses_numbered_reports(rpt_desc.value,
-				                      rpt_desc.size);
+			    uses_numbered_reports(rpt_desc.value,
+			                          rpt_desc.size);
 		}
 
 		return dev;
 	}
-	else {
+	else
+	{
 		/* Unable to open any devices. */
 		register_global_error(strerror(errno));
 		free(dev);
@@ -969,7 +1032,8 @@ int HID_API_EXPORT hid_write(hid_device *dev, const unsigned char *data, size_t 
 {
 	int bytes_written;
 
-	if (!data || (length == 0)) {
+	if(!data || (length == 0))
+	{
 		errno = EINVAL;
 		register_device_error(dev, strerror(errno));
 		return -1;
@@ -977,7 +1041,7 @@ int HID_API_EXPORT hid_write(hid_device *dev, const unsigned char *data, size_t 
 
 	bytes_written = write(dev->device_handle, data, length);
 
-	register_device_error(dev, (bytes_written == -1)? strerror(errno): NULL);
+	register_device_error(dev, (bytes_written == -1) ? strerror(errno) : NULL);
 
 	return bytes_written;
 }
@@ -990,7 +1054,8 @@ int HID_API_EXPORT hid_read_timeout(hid_device *dev, unsigned char *data, size_t
 
 	int bytes_read;
 
-	if (milliseconds >= 0) {
+	if(milliseconds >= 0)
+	{
 		/* Milliseconds is either 0 (non-blocking) or > 0 (contains
 		   a valid timeout). In both cases we want to call poll()
 		   and wait for data to arrive.  Don't rely on non-blocking
@@ -1004,27 +1069,31 @@ int HID_API_EXPORT hid_read_timeout(hid_device *dev, unsigned char *data, size_t
 		fds.events = POLLIN;
 		fds.revents = 0;
 		ret = poll(&fds, 1, milliseconds);
-		if (ret == 0) {
+		if(ret == 0)
+		{
 			/* Timeout */
 			return ret;
 		}
-		if (ret == -1) {
+		if(ret == -1)
+		{
 			/* Error */
 			register_device_error(dev, strerror(errno));
 			return ret;
 		}
-		else {
+		else
+		{
 			/* Check for errors on the file descriptor. This will
 			   indicate a device disconnection. */
-			if (fds.revents & (POLLERR | POLLHUP | POLLNVAL))
+			if(fds.revents & (POLLERR | POLLHUP | POLLNVAL))
 				// We cannot use strerror() here as no -1 was returned from poll().
 				return -1;
 		}
 	}
 
 	bytes_read = read(dev->device_handle, data, length);
-	if (bytes_read < 0) {
-		if (errno == EAGAIN || errno == EINPROGRESS)
+	if(bytes_read < 0)
+	{
+		if(errno == EAGAIN || errno == EINPROGRESS)
 			bytes_read = 0;
 		else
 			register_device_error(dev, strerror(errno));
@@ -1035,7 +1104,7 @@ int HID_API_EXPORT hid_read_timeout(hid_device *dev, unsigned char *data, size_t
 
 int HID_API_EXPORT hid_read(hid_device *dev, unsigned char *data, size_t length)
 {
-	return hid_read_timeout(dev, data, length, (dev->blocking)? -1: 0);
+	return hid_read_timeout(dev, data, length, (dev->blocking) ? -1 : 0);
 }
 
 int HID_API_EXPORT hid_set_nonblocking(hid_device *dev, int nonblock)
@@ -1054,7 +1123,7 @@ int HID_API_EXPORT hid_send_feature_report(hid_device *dev, const unsigned char 
 	int res;
 
 	res = ioctl(dev->device_handle, HIDIOCSFEATURE(length), data);
-	if (res < 0)
+	if(res < 0)
 		register_device_error_format(dev, "ioctl (SFEATURE): %s", strerror(errno));
 
 	return res;
@@ -1065,7 +1134,7 @@ int HID_API_EXPORT hid_get_feature_report(hid_device *dev, unsigned char *data, 
 	int res;
 
 	res = ioctl(dev->device_handle, HIDIOCGFEATURE(length), data);
-	if (res < 0)
+	if(res < 0)
 		register_device_error_format(dev, "ioctl (GFEATURE): %s", strerror(errno));
 
 	return res;
@@ -1076,7 +1145,7 @@ int HID_API_EXPORT HID_API_CALL hid_get_input_report(hid_device *dev, unsigned c
 	int res;
 
 	res = ioctl(dev->device_handle, HIDIOCGINPUT(length), data);
-	if (res < 0)
+	if(res < 0)
 		register_device_error_format(dev, "ioctl (GINPUT): %s", strerror(errno));
 
 	return res;
@@ -1084,12 +1153,12 @@ int HID_API_EXPORT HID_API_CALL hid_get_input_report(hid_device *dev, unsigned c
 
 void HID_API_EXPORT hid_close(hid_device *dev)
 {
-	if (!dev)
+	if(!dev)
 		return;
 
 	int ret = close(dev->device_handle);
 
-	register_global_error((ret == -1)? strerror(errno): NULL);
+	register_global_error((ret == -1) ? strerror(errno) : NULL);
 
 	/* Free the device error message */
 	register_device_error(dev, NULL);
@@ -1126,13 +1195,14 @@ int HID_API_EXPORT_CALL hid_get_indexed_string(hid_device *dev, int string_index
 /* Passing in NULL means asking for the last global error message. */
 HID_API_EXPORT const wchar_t * HID_API_CALL  hid_error(hid_device *dev)
 {
-	if (dev) {
-		if (dev->last_error_str == NULL)
+	if(dev)
+	{
+		if(dev->last_error_str == NULL)
 			return L"Success";
 		return dev->last_error_str;
 	}
 
-	if (last_global_error_str == NULL)
+	if(last_global_error_str == NULL)
 		return L"Success";
 	return last_global_error_str;
 }
